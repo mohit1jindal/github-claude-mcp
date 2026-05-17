@@ -9,3 +9,4 @@ github-action/dist/index.d.ts.map
 !github-action/dist/bundle/
 .env
 *.js.map
+build_guide.py

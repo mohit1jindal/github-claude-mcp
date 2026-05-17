@@ -39,6 +39,12 @@ The [Model Context Protocol](https://modelcontextprotocol.io) is an open standar
 
 ---
 
+## Documentation
+
+📄 **[Download the full Setup & Usage Guide (PDF)](github-claude-mcp-guide.pdf)** — visual step-by-step walkthrough with architecture diagrams, annotated YAML, troubleshooting tables, and a tools reference card.
+
+---
+
 ## End-to-End Setup
 
 ### Prerequisites
