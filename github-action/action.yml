@@ -1,0 +1,28 @@
+name: "GitHub Claude MCP"
+description: "AI-powered PR reviews and issue triage using Claude"
+author: "Mohit Jindal"
+
+branding:
+  icon: "cpu"
+  color: "purple"
+
+inputs:
+  anthropic_api_key:
+    description: "Anthropic API key (store as a GitHub Actions secret)"
+    required: true
+  github_token:
+    description: "GitHub token for posting reviews and comments"
+    required: true
+    default: ${{ github.token }}
+  model:
+    description: "Claude model to use"
+    required: false
+    default: "claude-sonnet-4-6"
+  max_tokens:
+    description: "Maximum tokens for Claude response"
+    required: false
+    default: "2048"
+
+runs:
+  using: "node20"
+  main: "dist/bundle/index.js"
