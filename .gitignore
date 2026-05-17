@@ -1,5 +1,11 @@
 node_modules/
 dist/
-github-action/dist/
+# Ignore compiled action intermediates but keep the ncc bundle
+github-action/dist/index.js
+github-action/dist/index.js.map
+github-action/dist/index.d.ts
+github-action/dist/index.d.ts.map
+# The bundle must be committed — GitHub Actions requires a pre-built file
+!github-action/dist/bundle/
 .env
 *.js.map

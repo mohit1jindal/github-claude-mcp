@@ -2,7 +2,7 @@
 
 A two-way bridge between **Claude AI** and **GitHub** — built on the [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
 
-**Claude → GitHub:** An MCP server that gives Claude full GitHub awareness — read repos, inspect PRs, review code, manage issues, and explore commit history, all from a Claude conversation.
+**Claude → GitHub:** An MCP server that gives Claude live GitHub access — read repos, inspect PRs, post reviews, manage issues, and browse commit history, all from inside a Claude conversation.
 
 **GitHub → Claude:** A GitHub Action that automatically fires Claude on pull requests and issues — AI-powered code reviews posted as PR comments, and intelligent issue triage with label suggestions.
 
@@ -10,13 +10,13 @@ A two-way bridge between **Claude AI** and **GitHub** — built on the [Model Co
 
 ## What is MCP?
 
-The [Model Context Protocol](https://modelcontextprotocol.io) is an open standard by Anthropic that lets AI assistants connect to external tools and data sources. Think of it as a universal plugin system for AI — instead of copy-pasting code into a chat window, Claude connects directly to your GitHub and acts on it.
+The [Model Context Protocol](https://modelcontextprotocol.io) is an open standard by Anthropic that lets AI assistants connect to external tools and data sources. Instead of copy-pasting code into a chat window, Claude connects directly to GitHub and acts on it.
 
 ---
 
 ## Features
 
-### MCP Server (Claude → GitHub)
+### MCP Server — Claude → GitHub
 
 | Tool | Description |
 |---|---|
@@ -32,28 +32,58 @@ The [Model Context Protocol](https://modelcontextprotocol.io) is an open standar
 | `list_commits` | Recent commits for a repo or file path |
 | `get_commit` | Full commit details with file diffs |
 
-### GitHub Action (GitHub → Claude)
+### GitHub Action — GitHub → Claude
 
-- **Auto PR Review** — triggers on `pull_request` (opened/updated), sends the diff to Claude, posts a structured review comment (Summary, Strengths, Suggestions, Verdict)
-- **Issue Triage** — triggers on `issues` (opened), Claude analyzes the issue, posts a welcome comment, and applies relevant labels automatically
+- **Auto PR Review** — triggers on every PR open/update, sends the diff to Claude, posts a structured review (Summary · Strengths · Suggestions · Verdict)
+- **Issue Triage** — triggers when an issue is opened, Claude posts a welcome/triage comment and applies matching labels automatically
 
 ---
 
-## Quick Start
+## End-to-End Setup
 
-### 1. MCP Server Setup
+### Prerequisites
 
-**Install:**
+- [Node.js 18+](https://nodejs.org) installed on your machine
+- [Claude Code CLI](https://claude.ai/code) or [Claude Desktop](https://claude.ai/download) installed
+- A GitHub account and a repository
+
+---
+
+### Part 1 — MCP Server (Claude → GitHub)
+
+This runs locally on your machine and connects Claude to GitHub.
+
+#### Step 1 — Clone and build
+
 ```bash
-npm install -g github-claude-mcp
+git clone https://github.com/mohit1jindal/github-claude-mcp.git
+cd github-claude-mcp
+npm install
+npm run build
 ```
 
-**Add to Claude Code** (`~/.claude/settings.json` or project `.claude/settings.json`):
+#### Step 2 — Create a GitHub Personal Access Token
+
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Generate new token (classic)**
+2. Give it a name (e.g. `claude-mcp`)
+3. Select these scopes:
+   - `repo` — full repo access (read/write PRs, issues, code)
+   - `read:org` — read org membership (needed for org repos)
+4. Click **Generate token** and copy the value — you won't see it again
+
+#### Step 3 — Configure Claude Code
+
+Add the MCP server to your Claude Code settings. Choose **one** of:
+
+**Option A — Global (all projects):**
+Edit `~/.claude/settings.json`:
+
 ```json
 {
   "mcpServers": {
     "github": {
-      "command": "github-claude-mcp",
+      "command": "node",
+      "args": ["/absolute/path/to/github-claude-mcp/dist/index.js"],
       "env": {
         "GITHUB_TOKEN": "ghp_your_token_here"
       }
@@ -62,27 +92,76 @@ npm install -g github-claude-mcp
 }
 ```
 
-**Or run directly:**
-```bash
-GITHUB_TOKEN=ghp_... npx github-claude-mcp
+**Option B — Per-project:**
+Create `.claude/settings.json` in your project root with the same content.
+
+> **Windows path example:** `"C:\\Users\\YourName\\Coding\\github-claude-mcp\\dist\\index.js"`
+
+#### Step 3b — Configure Claude Desktop (alternative)
+
+Edit `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac):
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "node",
+      "args": ["/absolute/path/to/github-claude-mcp/dist/index.js"],
+      "env": {
+        "GITHUB_TOKEN": "ghp_your_token_here"
+      }
+    }
+  }
+}
 ```
 
-**Get a GitHub token:** [github.com/settings/tokens](https://github.com/settings/tokens) — scopes needed: `repo`, `read:org`
+Restart Claude Desktop after saving.
 
-Once connected, ask Claude anything:
-- *"List my GitHub repos"*
-- *"Review the open PRs in mohit1jindal/my-project"*
-- *"What changed in the last 10 commits on the main branch?"*
-- *"Create an issue in my-repo titled 'Fix null pointer in invoice validator'"*
+#### Step 4 — Verify the connection
+
+Open Claude Code and type:
+
+```
+List my GitHub repos
+```
+
+If configured correctly, Claude will call `list_repos` and return your repositories.
+
+**Troubleshooting:**
+- Run `node dist/index.js` directly in the terminal — you should see `github-claude-mcp running on stdio`
+- If you see `GITHUB_TOKEN environment variable is required`, the env var isn't reaching the process — double-check the path and that the `env` key is spelled correctly in settings.json
+- On Windows, use double backslashes (`\\`) or forward slashes (`/`) in the path
 
 ---
 
-### 2. GitHub Action Setup
+### Part 2 — GitHub Action (GitHub → Claude)
 
-Add the workflow to any repository you want AI reviews on:
+This runs on GitHub's infrastructure and needs no local setup after configuration.
+
+#### Step 1 — Get an Anthropic API Key
+
+1. Go to [console.anthropic.com](https://console.anthropic.com)
+2. Sign in (or create an account)
+3. Click **API Keys** → **Create Key**
+4. Copy the key (starts with `sk-ant-...`)
+
+> **Cost:** Each PR review uses ~1,000–4,000 tokens depending on diff size. At Sonnet pricing (~$3/million input tokens) a typical review costs under $0.02. Issue triage is cheaper. For a personal repo this is negligible.
+
+#### Step 2 — Add the API key as a GitHub Secret
+
+In the repository where you want AI reviews:
+
+1. Go to **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret**
+3. Name: `ANTHROPIC_API_KEY`
+4. Value: paste your Anthropic API key
+5. Click **Add secret**
+
+#### Step 3 — Add the workflow file
+
+Create `.github/workflows/claude-review.yml` in your repository:
 
 ```yaml
-# .github/workflows/claude-review.yml
 name: Claude AI Review
 
 on:
@@ -99,6 +178,7 @@ permissions:
 jobs:
   claude-review:
     runs-on: ubuntu-latest
+    # Skip draft PRs
     if: ${{ github.event_name == 'issues' || !github.event.pull_request.draft }}
     steps:
       - name: Claude AI Review & Triage
@@ -108,25 +188,35 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Add your Anthropic API key as a secret: **Settings → Secrets → Actions → New repository secret** → name it `ANTHROPIC_API_KEY`.
+Commit and push this file. The action will run on the next PR or issue.
+
+#### Step 4 — Verify
+
+Open a new PR or issue in your repo. Within ~30 seconds you should see a Claude comment appear. Check the **Actions** tab if it doesn't appear — any errors will be logged there.
+
+**Troubleshooting:**
+- `Error: ANTHROPIC_API_KEY` → secret name doesn't match; check it's exactly `ANTHROPIC_API_KEY`
+- `Resource not accessible by integration` → the workflow is missing the `permissions` block — add it as shown above
+- Action not triggering → check the `on:` triggers match the event type (PR must not be a draft)
 
 ---
 
-## Configuration
+## Configuration Reference
 
-| Environment Variable | Required | Description |
+### MCP Server environment variables
+
+| Variable | Required | Description |
 |---|---|---|
-| `GITHUB_TOKEN` | Yes (MCP server) | GitHub Personal Access Token |
-| `ANTHROPIC_API_KEY` | Yes (GitHub Action) | Anthropic API key |
+| `GITHUB_TOKEN` | Yes | GitHub Personal Access Token with `repo` and `read:org` scopes |
 
-### Action Inputs
+### GitHub Action inputs
 
 | Input | Default | Description |
 |---|---|---|
+| `anthropic_api_key` | — | **Required.** Your Anthropic API key |
+| `github_token` | `${{ github.token }}` | GitHub token — the default works for most cases |
 | `model` | `claude-sonnet-4-6` | Claude model to use |
-| `max_tokens` | `2048` | Max tokens for Claude response |
-| `github_token` | `${{ github.token }}` | GitHub token |
-| `anthropic_api_key` | — | Anthropic API key (required) |
+| `max_tokens` | `2048` | Max tokens in Claude's response |
 
 ---
 
@@ -134,37 +224,31 @@ Add your Anthropic API key as a secret: **Settings → Secrets → Actions → N
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Claude (AI)                       │
-│                                                     │
-│  "Review PR #42 in my-repo and post your thoughts" │
+│                 You (in Claude)                     │
+│  "Review the open PRs in my repo"                  │
 └──────────────────────┬──────────────────────────────┘
                        │ MCP Protocol (stdio)
                        ▼
 ┌─────────────────────────────────────────────────────┐
-│             github-claude-mcp (MCP Server)          │
-│                                                     │
+│       github-claude-mcp MCP Server (local)          │
 │  Tools: list_repos, get_pull_request,               │
 │         post_pr_review, create_issue, ...           │
 └──────────────────────┬──────────────────────────────┘
-                       │ GitHub REST API (Octokit)
+                       │ GitHub REST API
                        ▼
-┌─────────────────────────────────────────────────────┐
-│                    GitHub                           │
-└─────────────────────────────────────────────────────┘
+              ┌────────────────┐
+              │    GitHub      │
+              └────────────────┘
 
 ┌─────────────────────────────────────────────────────┐
-│              GitHub (Event Source)                  │
-│                                                     │
-│  PR opened → workflow trigger                       │
-│  Issue opened → workflow trigger                    │
+│           GitHub (event: PR opened)                 │
 └──────────────────────┬──────────────────────────────┘
-                       │ GitHub Actions
+                       │ GitHub Actions trigger
                        ▼
 ┌─────────────────────────────────────────────────────┐
-│         github-claude-mcp (GitHub Action)           │
-│                                                     │
-│  Sends PR diff / issue body to Claude API           │
-│  Posts AI review / triage back to GitHub            │
+│    github-claude-mcp GitHub Action (GitHub infra)   │
+│  Fetches PR diff → calls Claude API →               │
+│  posts review comment back to PR                    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -173,13 +257,20 @@ Add your Anthropic API key as a secret: **Settings → Secrets → Actions → N
 ## Development
 
 ```bash
-git clone https://github.com/mohit1jindal/github-claude-mcp
+git clone https://github.com/mohit1jindal/github-claude-mcp.git
 cd github-claude-mcp
+
+# Install MCP server dependencies
 npm install
 npm run build
 
-# Run the MCP server locally
-GITHUB_TOKEN=ghp_... npm start
+# Run MCP server manually (for testing)
+GITHUB_TOKEN=ghp_... node dist/index.js
+
+# Build GitHub Action bundle (only needed when changing github-action/src/)
+cd github-action && npm install
+npx tsc -p ../tsconfig.action.json
+npx ncc build dist/index.js -o dist/bundle
 ```
 
 ---
