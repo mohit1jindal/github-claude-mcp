@@ -1,5 +1,5 @@
 name: "GitHub Claude MCP"
-description: "AI-powered PR reviews and issue triage using Claude"
+description: "Automated PR reviews and intelligent issue triage for GitHub repositories"
 author: "Mohit Jindal"
 
 branding:

@@ -428,4 +428,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*Built by [Mohit Jindal](https://www.linkedin.com/in/mohit1jindal) · [Model Context Protocol](https://modelcontextprotocol.io) · [Anthropic](https://anthropic.com)*
+*Built by [Mohit Jindal](https://www.linkedin.com/in/mohit1jindal) · [Model Context Protocol](https://modelcontextprotocol.io)*
