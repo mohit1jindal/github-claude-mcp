@@ -82,7 +82,8 @@ npm run build
 Add the MCP server to your Claude Code settings. Choose **one** of:
 
 **Option A — Global (all projects):**
-Edit `~/.claude/settings.json`:
+Merge this `mcpServers` entry into `~/.claude.json` (preserve existing settings),
+or use `claude mcp add --scope user`:
 
 ```json
 {
@@ -99,7 +100,9 @@ Edit `~/.claude/settings.json`:
 ```
 
 **Option B — Per-project:**
-Create `.claude/settings.json` in your project root with the same content.
+Create `.mcp.json` in your project root with the same structure. For a shared
+project file, use `"GITHUB_TOKEN": "${GITHUB_TOKEN}"` and set that environment
+variable before starting Claude Code. See the [Claude Code MCP scope reference](https://code.claude.com/docs/en/mcp#mcp-installation-scopes).
 
 > **Windows path example:** `"C:\\Users\\YourName\\Coding\\github-claude-mcp\\dist\\index.js"`
 
@@ -135,7 +138,7 @@ If configured correctly, Claude will call `list_repos` and return your repositor
 
 **Troubleshooting:**
 - Run `node dist/index.js` directly in the terminal — you should see `github-claude-mcp running on stdio`
-- If you see `GITHUB_TOKEN environment variable is required`, the env var isn't reaching the process — double-check the path and that the `env` key is spelled correctly in settings.json
+- If you see `GITHUB_TOKEN environment variable is required`, the env var isn't reaching the process — double-check the path and the `env` block in `~/.claude.json` or `.mcp.json`
 - On Windows, use double backslashes (`\\`) or forward slashes (`/`) in the path
 
 ---
@@ -152,7 +155,7 @@ Developer opens / updates PR
         ↓
 GitHub Action triggers automatically
         ↓
-Action fetches full PR diff + metadata
+Action fetches PR metadata and the first 100 changed files (up to 2,000 characters per patch)
         ↓
 Diff is sent to Claude API with a review prompt
         ↓
@@ -192,14 +195,9 @@ Comment posted + matching labels applied automatically
 4. Name it (e.g. `github-claude-mcp`)
 5. Copy the key — it starts with `sk-ant-...` — you won't see it again
 
-> **Cost estimate:**
-> | Event | Approx tokens | Approx cost |
-> |---|---|---|
-> | Small PR review (< 50 files) | ~1,000–2,000 | ~$0.005 |
-> | Large PR review (many files) | ~3,000–4,000 | ~$0.015 |
-> | Issue triage | ~500–1,000 | ~$0.002 |
->
-> For a personal repo with low traffic: **typically under $1/month.**
+> API cost depends on the selected model, input/output tokens, and event volume.
+> This action does not estimate or enforce a spending budget; check your
+> provider usage dashboard after a representative run.
 
 #### Step 2 — Add the API key as a GitHub Secret
 
@@ -240,7 +238,7 @@ jobs:
     if: ${{ github.event_name == 'issues' || !github.event.pull_request.draft }}
     steps:
       - name: Claude AI Review & Triage
-        uses: mohit1jindal/github-claude-mcp@v1
+        uses: mohit1jindal/github-claude-mcp/github-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -252,7 +250,9 @@ Commit and push this file to your repo's **default branch** (main or master). Gi
 
 #### Step 4 — Test it
 
-Open a new Pull Request (or reopen an existing one) in your repo. Within ~30 seconds:
+Open a new non-draft Pull Request or push a new commit to an existing non-draft PR.
+The example listens for `opened` and `synchronize`; reopening alone does not
+trigger it. Completion time depends on the Actions queue and model response:
 
 - The **Actions** tab will show a `Claude AI Review` workflow running
 - A review comment will appear on the PR from `github-actions[bot]`
@@ -338,7 +338,7 @@ jobs:
 | Action runs but no comment appears | Token lacks permission | Ensure `pull-requests: write` and `issues: write` in `permissions:` |
 | Draft PRs not reviewed | By design | Remove the `if:` condition from the job |
 | Review is too short | `max_tokens` too low | Set `max_tokens: "4096"` in the `with:` block |
-| Action fails on large PRs | Diff exceeds limit | Diffs are auto-truncated at 50KB — no fix needed, large files show a truncation notice |
+| Review omits changes in a large PR | Only the first 100 files are fetched; each patch is truncated at 2,000 characters | Split large PRs or inspect omitted changes separately. There is no combined 50KB cap in this implementation. |
 
 ---
 
